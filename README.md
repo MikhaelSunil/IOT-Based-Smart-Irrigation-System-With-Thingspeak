@@ -14,7 +14,7 @@ Water pump relay,
 ThingSpeak IoT platform,
 Wi-Fi module (ESP8266 or similar)
 
-Getting Started
+Getting Started:-
 Clone this repository and upload the Arduino code to your board.
 Connect your hardware according to the provided circuit diagram.
 Configure your ThingSpeak API key and Wi-Fi credentials in the Arduino code.
