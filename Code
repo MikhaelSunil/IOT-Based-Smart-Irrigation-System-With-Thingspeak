@@ -1,0 +1,151 @@
+//IOT BASED SMART IRIGRATION SYSTEM
+//AUTHORS:-Mikhael Sunil
+
+#include <SoftwareSerial.h>
+#include <LiquidCrystal_I2C.h>
+
+SoftwareSerial esp8266(2, 3); // RX, TX 
+String API = "ML2NM2E96EJGU9ST"; // ThingSpeak API key
+String HOST = "api.thingspeak.com";
+int PORT = 80; // Standard HTTP port
+
+int mpin = 8; // Setting motor pin as mpin 
+bool wifiConnected = false; 
+
+LiquidCrystal_I2C lcd(0x27, 16, 2); // Initialize LCD
+
+void setup() {
+  pinMode(mpin, OUTPUT); // Motor pin as output
+  pinMode(13, OUTPUT);   // Green LED
+  pinMode(12, OUTPUT);   // Red LED
+  pinMode(A0, INPUT);    // Moisture sensor
+  
+  lcd.init();
+  lcd.backlight();
+  lcd.setBacklight(HIGH);
+  
+  lcd.print("     WELCOME");
+  delay(1000);
+  lcd.clear();
+  
+  lcd.print("IOT BASED PLANT");
+  lcd.setCursor(0, 1);
+  lcd.print("WATERING SYSTEM");
+  delay(1000);
+  lcd.clear();
+  
+  lcd.print("Initializing..");
+  delay(1000);
+  lcd.clear();
+  
+  Serial.begin(9600);
+  esp8266.begin(115200); // Initialize ESP8266
+  
+  // Initialize WiFi connection 
+  wifiSetup();
+}
+
+void loop() {
+ // if (wifiConnected) {
+    int water_level = analogRead(A0);
+    int moisture_percentage = ((water_level / 539.00) * 100);
+    Serial.print("moisture %");
+    Serial.print(moisture_percentage);
+    Serial.println(" ");
+    
+    lcd.setCursor(0, 0);
+    lcd.print("Moisture:");
+    lcd.setCursor(10, 0);
+    lcd.print(moisture_percentage);
+    lcd.print("%");
+    
+    // Send data to ThingSpeak
+    sendDataToThingSpeak(moisture_percentage);
+
+    // Motor control based on moisture level
+    if (moisture_percentage <= 10) {
+      digitalWrite(mpin, HIGH);  // Motor ON
+      digitalWrite(13, HIGH);    // Green LED ON
+      digitalWrite(12, LOW);     // Red LED OFF
+
+      lcd.clear();
+      delay(500);
+      lcd.print("watering...");
+      Serial.print("watering...");
+      
+      delay(5000);  // Watering for 5 seconds
+      
+      digitalWrite(mpin, LOW);  // Motor OFF
+      digitalWrite(13, LOW);    // Green LED OFF
+   digitalWrite(12, HIGH);
+      lcd.clear();
+      delay(500);
+    } else {
+      digitalWrite(mpin, LOW);
+      digitalWrite(13, LOW);   // Green LED OFF
+      digitalWrite(12, HIGH);  // Red LED ON
+    }
+ // }
+}
+
+// Function for setting up WiFi without causing delays
+void wifiSetup() {
+  Serial.println("intialising wifi");
+  esp8266.println("AT");
+  delay(2000);
+  if (esp8266.find("OK")) {
+    Serial.println("ESP8266 ready");
+  }
+
+  esp8266.println("AT+CWMODE=1");
+  delay(2000);
+  if (esp8266.find("OK")) {
+    Serial.println("Set to Station Mode");
+  }
+
+  esp8266.println("AT+CWJAP=\"Simulation Wifi\",\"\""); 
+  Serial.println("Connecting to WiFi...");
+  delay(10000);
+
+  if (esp8266.find("OK")) {
+    Serial.println("Connected to WiFi!");
+    wifiConnected = true; 
+    lcd.clear();
+    lcd.print("WiFi Connected");
+    delay(1000);lcd.clear();
+  } else {
+    Serial.println("Failed to connect to WiFi");
+    lcd.clear();
+    lcd.print("WiFi Failed");
+    delay(1000);
+    lcd.clear();
+  }
+}
+
+// Function to send data to ThingSpeak
+void sendDataToThingSpeak(int moisture_percentage) {
+  String getData = "GET /update?api_key=" + API + "&field1=" + String(moisture_percentage);
+  
+  esp8266.println("AT+CIPMUX=1");
+  delay(2000);
+  esp8266.println("AT+CIPSTART=\"TCP\",\"" + HOST + "\"," + PORT);
+  delay(2000);
+  
+  if (esp8266.find("OK")) {
+    esp8266.println("AT+CIPSEND=" + String(getData.length() + 4));
+    delay(2000);
+    esp8266.println(getData);
+    delay(2000);
+    
+    if (esp8266.find("SEND OK")) {
+      Serial.println("Data sent successfully");
+    } else {
+      Serial.println("Failed to send data");
+    }
+  } else {
+    //Serial.println("Failed to connect to ThingSpeak");
+  }
+
+  esp8266.println("AT+CIPCLOSE");
+  delay(2000);
+}
